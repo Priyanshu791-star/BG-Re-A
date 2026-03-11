@@ -1,157 +1,638 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Background Remover | Offline PWA</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
-    <style>
-        @import url('https://fonts.googleapis.com');
-        body { background-color: #050505; color: #e2e8f0; font-family: 'Inter', sans-serif; }
-        .cyber-header { font-family: 'Orbitron', sans-serif; text-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6; }
-        .neon-border { border: 1px solid #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
-        .neon-glow:hover { box-shadow: 0 0 25px rgba(59, 130, 246, 0.8); transition: 0.3s; }
-        #resultCanvas { max-width: 100%; height: auto; border-radius: 12px; background-image: conic-gradient(#111 25%, #1a1a1a 0 50%, #111 0 75%, #1a1a1a 0); background-size: 20px 20px; }
-        .loading-shimmer { background: linear-gradient(90deg, #0f172a 25%, #1e293b 50%, #0f172a 75%); background-size: 200% 100%; animation: shimmer 2s infinite; }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI BG Remover (Offline)</title>
+  <link rel="manifest" href="#" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --neon: #00f5ff;
+      --neon2: #7b2fff;
+      --bg: #050508;
+      --bg2: #0d0d1a;
+      --card: #0a0a14;
+      --border: rgba(0,245,255,0.2);
+      --glow: 0 0 20px rgba(0,245,255,0.4), 0 0 60px rgba(0,245,255,0.1);
+      --glow-strong: 0 0 30px rgba(0,245,255,0.8), 0 0 80px rgba(0,245,255,0.3);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: #e0e0ff;
+      font-family: 'Rajdhani', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at 30% 20%, rgba(123,47,255,0.08) 0%, transparent 50%),
+                  radial-gradient(ellipse at 70% 80%, rgba(0,245,255,0.06) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+      animation: pulse-bg 8s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse-bg {
+      0% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px 16px 60px;
+    }
+
+    /* HEADER */
+    header {
+      text-align: center;
+      padding: 40px 0 30px;
+    }
+
+    .logo-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, rgba(0,245,255,0.1), rgba(123,47,255,0.1));
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 6px 18px;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--neon);
+      margin-bottom: 16px;
+      box-shadow: var(--glow);
+    }
+
+    h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(22px, 5vw, 42px);
+      font-weight: 900;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #fff 0%, var(--neon) 50%, var(--neon2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: rgba(200,200,255,0.5);
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    /* SCAN LINE ANIMATION */
+    .scan-line {
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon), transparent);
+      margin: 24px 0;
+      animation: scan 3s ease-in-out infinite;
+      box-shadow: 0 0 10px var(--neon);
+    }
+
+    @keyframes scan {
+      0%, 100% { opacity: 0.3; transform: scaleX(0.3); }
+      50% { opacity: 1; transform: scaleX(1); }
+    }
+
+    /* UPLOAD AREA */
+    .upload-zone {
+      border: 2px dashed rgba(0,245,255,0.3);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: linear-gradient(135deg, rgba(0,245,255,0.03), rgba(123,47,255,0.03));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0,245,255,0.05), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .upload-zone:hover::before { opacity: 1; }
+    .upload-zone:hover {
+      border-color: var(--neon);
+      box-shadow: var(--glow);
+    }
+
+    .upload-zone.dragover {
+      border-color: var(--neon);
+      box-shadow: var(--glow-strong);
+      transform: scale(1.01);
+    }
+
+    .upload-icon {
+      font-size: 52px;
+      margin-bottom: 14px;
+      display: block;
+      filter: drop-shadow(0 0 10px rgba(0,245,255,0.5));
+    }
+
+    .upload-zone h3 {
+      font-family: 'Orbitron', monospace;
+      font-size: 16px;
+      color: var(--neon);
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .upload-zone p {
+      color: rgba(200,200,255,0.4);
+      font-size: 13px;
+    }
+
+    #fileInput { display: none; }
+
+    /* PREVIEW */
+    .preview-box {
+      margin-top: 20px;
+      display: none;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--glow);
+      position: relative;
+    }
+
+    .preview-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--neon);
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+    }
+
+    #previewImg {
+      width: 100%;
+      max-height: 350px;
+      object-fit: contain;
+      display: block;
+      background: #0a0a14;
+    }
+
+    /* BUTTON */
+    .btn-remove {
+      width: 100%;
+      margin-top: 20px;
+      padding: 18px;
+      font-family: 'Orbitron', monospace;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #004d66, #001a33, #2d0066);
+      color: var(--neon);
+      border: 1px solid rgba(0,245,255,0.4);
+      box-shadow: var(--glow), inset 0 1px 0 rgba(255,255,255,0.05);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      display: none;
+    }
+
+    .btn-remove::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0,245,255,0.15), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn-remove:hover::before { left: 100%; }
+    .btn-remove:hover {
+      box-shadow: var(--glow-strong);
+      transform: translateY(-2px);
+      color: #fff;
+    }
+
+    .btn-remove:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* STATUS */
+    .status-bar {
+      margin-top: 16px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(0,245,255,0.03);
+      font-size: 13px;
+      letter-spacing: 1px;
+      color: rgba(200,200,255,0.6);
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-bar.active { display: flex; }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--neon);
+      animation: blink 1s infinite;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px var(--neon);
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .status-bar.done .status-dot {
+      background: #00ff88;
+      box-shadow: 0 0 6px #00ff88;
+      animation: none;
+    }
+
+    .status-bar.error .status-dot {
+      background: #ff4466;
+      box-shadow: 0 0 6px #ff4466;
+      animation: none;
+    }
+
+    /* RESULT */
+    .result-section {
+      margin-top: 28px;
+      display: none;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .result-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 13px;
+      letter-spacing: 2px;
+      color: var(--neon);
+      text-transform: uppercase;
+    }
+
+    .result-canvas-wrap {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--glow);
+      background: repeating-conic-gradient(#1a1a2e 0% 25%, #0d0d1a 0% 50%) 0 0 / 20px 20px;
+      position: relative;
+    }
+
+    #outputCanvas {
+      width: 100%;
+      display: block;
+      max-height: 500px;
+      object-fit: contain;
+    }
+
+    .btn-download {
+      padding: 12px 24px;
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      border: 1px solid rgba(0,255,136,0.4);
+      border-radius: 8px;
+      cursor: pointer;
+      background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,245,255,0.05));
+      color: #00ff88;
+      box-shadow: 0 0 15px rgba(0,255,136,0.2);
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-download:hover {
+      box-shadow: 0 0 25px rgba(0,255,136,0.5);
+      transform: translateY(-1px);
+    }
+
+    /* HIDDEN ELEMENTS */
+    #hiddenImg { display: none; }
+
+    /* LOADING OVERLAY */
+    .processing-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5,5,8,0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      backdrop-filter: blur(4px);
+      z-index: 10;
+    }
+
+    .processing-overlay.active { display: flex; }
+
+    .spinner {
+      width: 50px; height: 50px;
+      border: 3px solid rgba(0,245,255,0.1);
+      border-top-color: var(--neon);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      box-shadow: 0 0 20px rgba(0,245,255,0.3);
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .processing-text {
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      color: var(--neon);
+      letter-spacing: 3px;
+      animation: pulse-text 1.5s infinite;
+    }
+
+    @keyframes pulse-text {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      margin-top: 50px;
+      color: rgba(200,200,255,0.2);
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col items-center p-4 pb-12">
+<body>
 
-    <header class="w-full max-w-2xl mt-8 mb-12 text-center">
-        <h1 class="cyber-header text-2xl md:text-3xl font-bold text-blue-500 uppercase tracking-widest">
-            Google AI BG Remover
-        </h1>
-        <p class="text-xs text-blue-300 mt-2 opacity-70">100% OFFLINE BROWSER PROCESSING</p>
-    </header>
+<img id="hiddenImg" crossorigin="anonymous" />
 
-    <main class="w-full max-w-xl space-y-6">
-        <!-- Upload Section -->
-        <div class="relative group">
-            <label for="imageInput" class="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-blue-900 rounded-2xl cursor-pointer bg-slate-900/30 hover:bg-slate-900/50 transition-all group-hover:border-blue-500">
-                <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                    <svg class="w-10 h-10 mb-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                    <p class="mb-2 text-sm text-blue-200"><span class="font-semibold">Click to upload</span> or drag and drop</p>
-                    <p class="text-xs text-slate-500">PNG, JPG or WEBP (HD Supported)</p>
-                </div>
-                <input id="imageInput" type="file" class="hidden" accept="image/*" />
-            </label>
-        </div>
+<div class="container">
 
-        <!-- Action Button -->
-        <button id="processBtn" disabled class="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 rounded-xl font-bold uppercase tracking-wider neon-glow transition-all flex items-center justify-center gap-2">
-            <span>Remove Background 🪄</span>
-        </button>
+  <header>
+    <div class="logo-badge">⚡ Powered by Google MediaPipe</div>
+    <h1>Google AI BG Remover</h1>
+    <p class="subtitle">100% Offline · No Upload · Browser Based</p>
+    <div class="scan-line"></div>
+  </header>
 
-        <!-- Status & Results -->
-        <div id="statusText" class="text-center text-sm font-mono text-blue-400/60 h-6"></div>
+  <!-- UPLOAD -->
+  <div class="upload-zone" id="uploadZone">
+    <span class="upload-icon">🖼️</span>
+    <h3>Drop Image Here</h3>
+    <p>Click to select or drag & drop · JPG, PNG, WEBP</p>
+    <input type="file" id="fileInput" accept="image/*" />
+  </div>
 
-        <div id="resultContainer" class="hidden space-y-4 animate-in fade-in duration-700">
-            <div class="neon-border rounded-2xl overflow-hidden bg-black">
-                <canvas id="resultCanvas"></canvas>
-            </div>
-            <button id="downloadBtn" class="w-full py-3 border border-blue-500/50 text-blue-400 rounded-xl hover:bg-blue-500/10 font-semibold transition-all">
-                Download HD PNG
-            </button>
-        </div>
-    </main>
+  <!-- PREVIEW -->
+  <div class="preview-box" id="previewBox">
+    <span class="preview-label">ORIGINAL</span>
+    <img id="previewImg" alt="preview" />
+  </div>
 
-    <!-- Hidden Assets -->
-    <img id="hiddenImage" class="hidden" alt="Source" />
+  <!-- REMOVE BUTTON -->
+  <button class="btn-remove" id="removeBtn">
+    🪄 &nbsp; Remove Background
+  </button>
 
-    <script>
-        const imageInput = document.getElementById('imageInput');
-        const hiddenImage = document.getElementById('hiddenImage');
-        const processBtn = document.getElementById('processBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const resultCanvas = document.getElementById('resultCanvas');
-        const ctx = resultCanvas.getContext('2d');
-        const statusText = document.getElementById('statusText');
-        const resultContainer = document.getElementById('resultContainer');
+  <!-- STATUS -->
+  <div class="status-bar" id="statusBar">
+    <div class="status-dot"></div>
+    <span id="statusText">Initializing AI Model...</span>
+  </div>
 
-        // Initialize MediaPipe Selfie Segmentation
-        const selfieSegmentation = new SelfieSegmentation({
-            locateFile: (file) => `https://cdn.jsdelivr.net{file}`
-        });
+  <!-- RESULT -->
+  <div class="result-section" id="resultSection">
+    <div class="result-header">
+      <span class="result-title">✨ Result — Transparent Background</span>
+      <a id="downloadBtn" class="btn-download" download="removed-bg.png">⬇ Download HD PNG</a>
+    </div>
+    <div class="result-canvas-wrap">
+      <div class="processing-overlay" id="processingOverlay">
+        <div class="spinner"></div>
+        <div class="processing-text">PROCESSING...</div>
+      </div>
+      <canvas id="outputCanvas"></canvas>
+    </div>
+  </div>
 
-        selfieSegmentation.setOptions({
-            modelSelection: 1, // General model (HD-ish)
-        });
+  <footer>
+    <p>Google MediaPipe Selfie Segmentation · Runs 100% in Browser · Zero Data Sent</p>
+  </footer>
 
-        selfieSegmentation.onResults((results) => {
-            statusText.innerText = "Finalizing edges...";
-            
-            // Set canvas size to match original image for HD output
-            resultCanvas.width = results.image.width;
-            resultCanvas.height = results.image.height;
+</div>
 
-            // Clear and Draw
-            ctx.save();
-            ctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
-            
-            // Draw the segmentation mask
-            ctx.drawImage(results.segmentationMask, 0, 0, resultCanvas.width, resultCanvas.height);
+<script>
+  // ── Elements ──
+  const uploadZone   = document.getElementById('uploadZone');
+  const fileInput    = document.getElementById('fileInput');
+  const previewBox   = document.getElementById('previewBox');
+  const previewImg   = document.getElementById('previewImg');
+  const removeBtn    = document.getElementById('removeBtn');
+  const statusBar    = document.getElementById('statusBar');
+  const statusText   = document.getElementById('statusText');
+  const resultSection= document.getElementById('resultSection');
+  const outputCanvas = document.getElementById('outputCanvas');
+  const downloadBtn  = document.getElementById('downloadBtn');
+  const hiddenImg    = document.getElementById('hiddenImg');
+  const processingOverlay = document.getElementById('processingOverlay');
 
-            // Magic: Only keep parts of the source image where the mask exists
-            ctx.globalCompositeOperation = 'source-in';
-            ctx.drawImage(results.image, 0, 0, resultCanvas.width, resultCanvas.height);
-            
-            ctx.restore();
+  let segmentation = null;
+  let modelReady = false;
+  let currentFile = null;
 
-            statusText.innerText = "Done!";
-            resultContainer.classList.remove('hidden');
-            processBtn.disabled = false;
-        });
+  // ── Init MediaPipe ──
+  function initModel() {
+    try {
+      segmentation = new SelfieSegmentation({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+      });
 
-        // Handle Image Upload
-        imageInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+      segmentation.setOptions({ modelSelection: 1 });
 
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                hiddenImage.src = event.target.result;
-                hiddenImage.onload = () => {
-                    processBtn.disabled = false;
-                    statusText.innerText = "Image loaded. Ready for AI magic.";
-                    resultContainer.classList.add('hidden');
-                };
-            };
-            reader.readAsDataURL(file);
-        };
+      segmentation.onResults(onSegmentationResults);
 
-        // Process Action
-        processBtn.onclick = async () => {
-            processBtn.disabled = true;
-            statusText.innerText = "AI is thinking...";
-            try {
-                await selfieSegmentation.send({ image: hiddenImage });
-            } catch (err) {
-                statusText.innerText = "Error: " + err.message;
-                processBtn.disabled = false;
-            }
-        };
+      // Warm up
+      segmentation.initialize().then(() => {
+        modelReady = true;
+        console.log('MediaPipe model ready ✅');
+      }).catch(err => {
+        console.warn('Init warning (non-fatal):', err);
+        modelReady = true; // Try anyway
+      });
 
-        // Download Action
-        downloadBtn.onclick = () => {
-            const link = document.createElement('a');
-            link.download = `no-bg-${Date.now()}.png`;
-            link.href = resultCanvas.toDataURL('image/png');
-            link.click();
-        };
+    } catch (e) {
+      console.error('Model init failed:', e);
+      showStatus('Model load failed. Please refresh.', 'error');
+    }
+  }
 
-        // Service Worker for PWA (Offline functionality)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                const swCode = `
-                    self.addEventListener('install', (e) => self.skipWaiting());
-                    self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
-                `;
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                navigator.serviceWorker.register(URL.createObjectURL(blob));
-            });
+  initModel();
+
+  // ── Upload Handlers ──
+  uploadZone.addEventListener('click', () => fileInput.click());
+
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('dragover');
+  });
+
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) loadImage(file);
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) loadImage(file);
+  });
+
+  function loadImage(file) {
+    currentFile = file;
+    const url = URL.createObjectURL(file);
+
+    previewImg.src = url;
+    previewImg.onload = () => {
+      previewBox.style.display = 'block';
+      removeBtn.style.display = 'block';
+      resultSection.style.display = 'none';
+    };
+  }
+
+  // ── Remove Background ──
+  removeBtn.addEventListener('click', async () => {
+    if (!currentFile) return;
+
+    removeBtn.disabled = true;
+    resultSection.style.display = 'block';
+    processingOverlay.classList.add('active');
+    showStatus('AI is analyzing your image...', 'processing');
+
+    const url = URL.createObjectURL(currentFile);
+    hiddenImg.src = url;
+
+    hiddenImg.onload = async () => {
+      try {
+        if (!modelReady || !segmentation) {
+          throw new Error('Model not ready');
         }
-    </script>
+        await segmentation.send({ image: hiddenImg });
+      } catch (err) {
+        console.error('Segmentation error:', err);
+        processingOverlay.classList.remove('active');
+        removeBtn.disabled = false;
+        showStatus('❌ Error: ' + err.message + '. Try refreshing.', 'error');
+      }
+    };
+
+    hiddenImg.onerror = () => {
+      processingOverlay.classList.remove('active');
+      removeBtn.disabled = false;
+      showStatus('❌ Could not load image.', 'error');
+    };
+  });
+
+  // ── MediaPipe Results ──
+  function onSegmentationResults(results) {
+    try {
+      const img = results.image;
+      const mask = results.segmentationMask;
+
+      const w = img.width || hiddenImg.naturalWidth;
+      const h = img.height || hiddenImg.naturalHeight;
+
+      outputCanvas.width  = w;
+      outputCanvas.height = h;
+
+      const ctx = outputCanvas.getContext('2d');
+      ctx.clearRect(0, 0, w, h);
+
+      // Step 1: Draw the original image
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // Step 2: Apply mask to keep only foreground
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.drawImage(mask, 0, 0, w, h);
+
+      // Reset composite
+      ctx.globalCompositeOperation = 'source-over';
+
+      // Set download
+      downloadBtn.href = outputCanvas.toDataURL('image/png');
+      downloadBtn.download = 'removed-bg-' + Date.now() + '.png';
+
+      processingOverlay.classList.remove('active');
+      removeBtn.disabled = false;
+      showStatus('✅ Background removed successfully!', 'done');
+
+    } catch (err) {
+      console.error('Result processing error:', err);
+      processingOverlay.classList.remove('active');
+      removeBtn.disabled = false;
+      showStatus('❌ Processing failed: ' + err.message, 'error');
+    }
+  }
+
+  function showStatus(msg, type) {
+    statusBar.className = 'status-bar active';
+    if (type) statusBar.classList.add(type);
+    statusText.textContent = msg;
+  }
+</script>
+
 </body>
 </html>
