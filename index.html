@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI BG Remover (Offline)</title>
-  <link rel="manifest" href="#" />
+  <title>Google AI BG Remover (Offline)</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
   <style>
@@ -12,15 +11,12 @@
       --neon: #00f5ff;
       --neon2: #7b2fff;
       --bg: #050508;
-      --bg2: #0d0d1a;
       --card: #0a0a14;
       --border: rgba(0,245,255,0.2);
       --glow: 0 0 20px rgba(0,245,255,0.4), 0 0 60px rgba(0,245,255,0.1);
       --glow-strong: 0 0 30px rgba(0,245,255,0.8), 0 0 80px rgba(0,245,255,0.3);
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       background: var(--bg);
       color: #e0e0ff;
@@ -28,611 +24,356 @@
       min-height: 100vh;
       overflow-x: hidden;
     }
-
-    /* Animated grid background */
     body::before {
       content: '';
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background-image:
         linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
       background-size: 40px 40px;
-      pointer-events: none;
-      z-index: 0;
+      pointer-events: none; z-index: 0;
     }
-
     body::after {
       content: '';
-      position: fixed;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
+      position: fixed; top: -50%; left: -50%; width: 200%; height: 200%;
       background: radial-gradient(ellipse at 30% 20%, rgba(123,47,255,0.08) 0%, transparent 50%),
                   radial-gradient(ellipse at 70% 80%, rgba(0,245,255,0.06) 0%, transparent 50%);
-      pointer-events: none;
-      z-index: 0;
+      pointer-events: none; z-index: 0;
       animation: pulse-bg 8s ease-in-out infinite alternate;
     }
+    @keyframes pulse-bg { 0%{opacity:.5} 100%{opacity:1} }
 
-    @keyframes pulse-bg {
-      0% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
+    .container { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
 
-    .container {
-      position: relative;
-      z-index: 1;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 20px 16px 60px;
-    }
-
-    /* HEADER */
-    header {
-      text-align: center;
-      padding: 40px 0 30px;
-    }
-
+    header { text-align: center; padding: 36px 0 24px; }
     .logo-badge {
       display: inline-block;
       background: linear-gradient(135deg, rgba(0,245,255,0.1), rgba(123,47,255,0.1));
-      border: 1px solid var(--border);
-      border-radius: 50px;
-      padding: 6px 18px;
-      font-size: 11px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: var(--neon);
-      margin-bottom: 16px;
+      border: 1px solid var(--border); border-radius: 50px;
+      padding: 6px 18px; font-size: 11px; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--neon); margin-bottom: 14px;
       box-shadow: var(--glow);
     }
-
     h1 {
       font-family: 'Orbitron', monospace;
-      font-size: clamp(22px, 5vw, 42px);
-      font-weight: 900;
-      line-height: 1.1;
+      font-size: clamp(20px, 5vw, 40px); font-weight: 900; line-height: 1.1;
       background: linear-gradient(135deg, #fff 0%, var(--neon) 50%, var(--neon2) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 10px;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 8px;
     }
-
-    .subtitle {
-      color: rgba(200,200,255,0.5);
-      font-size: 15px;
-      letter-spacing: 1px;
-    }
-
-    /* SCAN LINE ANIMATION */
+    .subtitle { color: rgba(200,200,255,0.5); font-size: 14px; letter-spacing: 1px; }
     .scan-line {
-      width: 100%;
-      height: 2px;
+      width: 100%; height: 2px;
       background: linear-gradient(90deg, transparent, var(--neon), transparent);
-      margin: 24px 0;
-      animation: scan 3s ease-in-out infinite;
-      box-shadow: 0 0 10px var(--neon);
+      margin: 20px 0; animation: scan 3s ease-in-out infinite; box-shadow: 0 0 10px var(--neon);
+    }
+    @keyframes scan { 0%,100%{opacity:.3;transform:scaleX(.3)} 50%{opacity:1;transform:scaleX(1)} }
+
+    .step-label {
+      font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 3px;
+      color: var(--neon); text-transform: uppercase; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .step-num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(0,245,255,0.15); border: 1px solid rgba(0,245,255,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: var(--neon); flex-shrink: 0;
     }
 
-    @keyframes scan {
-      0%, 100% { opacity: 0.3; transform: scaleX(0.3); }
-      50% { opacity: 1; transform: scaleX(1); }
-    }
-
-    /* UPLOAD AREA */
     .upload-zone {
-      border: 2px dashed rgba(0,245,255,0.3);
-      border-radius: 16px;
-      padding: 40px 20px;
-      text-align: center;
-      cursor: pointer;
+      border: 2px dashed rgba(0,245,255,0.3); border-radius: 16px;
+      padding: 36px 20px; text-align: center; cursor: pointer;
       transition: all 0.3s ease;
       background: linear-gradient(135deg, rgba(0,245,255,0.03), rgba(123,47,255,0.03));
-      position: relative;
-      overflow: hidden;
+      position: relative; overflow: hidden;
     }
-
-    .upload-zone::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(0,245,255,0.05), transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .upload-zone:hover::before { opacity: 1; }
-    .upload-zone:hover {
-      border-color: var(--neon);
-      box-shadow: var(--glow);
-    }
-
-    .upload-zone.dragover {
-      border-color: var(--neon);
-      box-shadow: var(--glow-strong);
-      transform: scale(1.01);
-    }
-
-    .upload-icon {
-      font-size: 52px;
-      margin-bottom: 14px;
-      display: block;
-      filter: drop-shadow(0 0 10px rgba(0,245,255,0.5));
-    }
-
-    .upload-zone h3 {
-      font-family: 'Orbitron', monospace;
-      font-size: 16px;
-      color: var(--neon);
-      margin-bottom: 8px;
-      letter-spacing: 1px;
-    }
-
-    .upload-zone p {
-      color: rgba(200,200,255,0.4);
-      font-size: 13px;
-    }
-
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--neon); box-shadow: var(--glow); }
+    .upload-icon { font-size: 44px; margin-bottom: 12px; display: block; filter: drop-shadow(0 0 10px rgba(0,245,255,0.5)); }
+    .upload-zone h3 { font-family: 'Orbitron', monospace; font-size: 15px; color: var(--neon); margin-bottom: 6px; }
+    .upload-zone p { color: rgba(200,200,255,0.4); font-size: 13px; }
     #fileInput { display: none; }
 
-    /* PREVIEW */
     .preview-box {
-      margin-top: 20px;
-      display: none;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: var(--glow);
-      position: relative;
+      margin-top: 16px; display: none; border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border); box-shadow: var(--glow); position: relative;
     }
-
     .preview-label {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 4px 10px;
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--neon);
-      text-transform: uppercase;
-      backdrop-filter: blur(10px);
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(0,0,0,0.7); border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 10px; font-size: 11px; letter-spacing: 2px; color: var(--neon);
+      text-transform: uppercase; backdrop-filter: blur(10px);
+    }
+    #previewImg { width: 100%; max-height: 300px; object-fit: contain; display: block; background: #0a0a14; }
+
+    .section { margin-top: 28px; }
+
+    .bg-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+    .bg-tab {
+      padding: 7px 14px; border-radius: 8px; cursor: pointer;
+      font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 1px;
+      border: 1px solid rgba(0,245,255,0.2); background: rgba(0,245,255,0.05);
+      color: rgba(200,200,255,0.5); transition: all 0.2s;
+    }
+    .bg-tab.active, .bg-tab:hover {
+      border-color: var(--neon); color: var(--neon); background: rgba(0,245,255,0.1);
+      box-shadow: 0 0 10px rgba(0,245,255,0.2);
     }
 
-    #previewImg {
-      width: 100%;
-      max-height: 350px;
-      object-fit: contain;
-      display: block;
-      background: #0a0a14;
+    .bg-panel { display: none; }
+    .bg-panel.active { display: block; }
+
+    .color-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .color-swatch {
+      width: 44px; height: 44px; border-radius: 10px; cursor: pointer;
+      border: 2px solid transparent; transition: all 0.2s; flex-shrink: 0;
+    }
+    .color-swatch:hover, .color-swatch.selected {
+      border-color: var(--neon); box-shadow: 0 0 12px rgba(0,245,255,0.5); transform: scale(1.1);
+    }
+    .color-custom-wrap { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .color-custom-wrap label { font-size: 13px; color: rgba(200,200,255,0.5); }
+    #customColor { width: 44px; height: 44px; border-radius: 10px; border: none; cursor: pointer; background: none; }
+
+    .gradient-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .gradient-swatch {
+      width: 80px; height: 50px; border-radius: 10px; cursor: pointer;
+      border: 2px solid transparent; transition: all 0.2s;
+    }
+    .gradient-swatch:hover, .gradient-swatch.selected {
+      border-color: var(--neon); box-shadow: 0 0 12px rgba(0,245,255,0.5); transform: scale(1.05);
     }
 
-    /* BUTTON */
+    .preset-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .preset-thumb {
+      width: 100px; height: 65px; border-radius: 10px; cursor: pointer;
+      border: 2px solid transparent; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 3px;
+      color: rgba(255,255,255,0.8); font-family: 'Rajdhani', sans-serif; font-size: 11px;
+    }
+    .preset-thumb:hover, .preset-thumb.selected {
+      border-color: var(--neon); box-shadow: 0 0 12px rgba(0,245,255,0.5); transform: scale(1.05);
+    }
+    .preset-thumb .emoji { font-size: 22px; }
+
+    .custom-bg-zone {
+      border: 2px dashed rgba(0,245,255,0.3); border-radius: 12px;
+      padding: 28px 20px; text-align: center; cursor: pointer;
+      transition: all 0.3s; background: rgba(0,245,255,0.02);
+    }
+    .custom-bg-zone:hover { border-color: var(--neon); box-shadow: var(--glow); }
+    #bgFileInput { display: none; }
+    .custom-bg-preview { margin-top: 12px; display: none; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); max-height: 120px; }
+    .custom-bg-preview img { width: 100%; max-height: 120px; object-fit: cover; display: block; }
+
     .btn-remove {
-      width: 100%;
-      margin-top: 20px;
-      padding: 18px;
-      font-family: 'Orbitron', monospace;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      border: none;
-      border-radius: 12px;
+      width: 100%; margin-top: 24px; padding: 18px;
+      font-family: 'Orbitron', monospace; font-size: 15px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase; border-radius: 12px;
       cursor: pointer;
       background: linear-gradient(135deg, #004d66, #001a33, #2d0066);
-      color: var(--neon);
-      border: 1px solid rgba(0,245,255,0.4);
+      color: var(--neon); border: 1px solid rgba(0,245,255,0.4);
       box-shadow: var(--glow), inset 0 1px 0 rgba(255,255,255,0.05);
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-      display: none;
+      transition: all 0.3s; position: relative; overflow: hidden; display: none;
     }
-
     .btn-remove::before {
-      content: '';
-      position: absolute;
-      top: 0; left: -100%;
-      width: 100%; height: 100%;
+      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
       background: linear-gradient(90deg, transparent, rgba(0,245,255,0.15), transparent);
       transition: left 0.5s;
     }
-
     .btn-remove:hover::before { left: 100%; }
-    .btn-remove:hover {
-      box-shadow: var(--glow-strong);
-      transform: translateY(-2px);
-      color: #fff;
-    }
+    .btn-remove:hover { box-shadow: var(--glow-strong); transform: translateY(-2px); color: #fff; }
+    .btn-remove:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-    .btn-remove:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* STATUS */
     .status-bar {
-      margin-top: 16px;
-      padding: 14px 18px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(0,245,255,0.03);
-      font-size: 13px;
-      letter-spacing: 1px;
-      color: rgba(200,200,255,0.6);
-      display: none;
-      align-items: center;
-      gap: 10px;
+      margin-top: 14px; padding: 12px 16px; border-radius: 10px;
+      border: 1px solid var(--border); background: rgba(0,245,255,0.03);
+      font-size: 13px; letter-spacing: 1px; color: rgba(200,200,255,0.6);
+      display: none; align-items: center; gap: 10px;
     }
-
     .status-bar.active { display: flex; }
-
     .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--neon);
-      animation: blink 1s infinite;
-      flex-shrink: 0;
-      box-shadow: 0 0 6px var(--neon);
+      width: 8px; height: 8px; border-radius: 50%; background: var(--neon);
+      animation: blink 1s infinite; flex-shrink: 0; box-shadow: 0 0 6px var(--neon);
     }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+    .status-bar.done .status-dot { background: #00ff88; box-shadow: 0 0 6px #00ff88; animation: none; }
+    .status-bar.error .status-dot { background: #ff4466; box-shadow: 0 0 6px #ff4466; animation: none; }
 
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.2; }
-    }
-
-    .status-bar.done .status-dot {
-      background: #00ff88;
-      box-shadow: 0 0 6px #00ff88;
-      animation: none;
-    }
-
-    .status-bar.error .status-dot {
-      background: #ff4466;
-      box-shadow: 0 0 6px #ff4466;
-      animation: none;
-    }
-
-    /* RESULT */
-    .result-section {
-      margin-top: 28px;
-      display: none;
-    }
-
-    .result-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    .result-title {
-      font-family: 'Orbitron', monospace;
-      font-size: 13px;
-      letter-spacing: 2px;
-      color: var(--neon);
-      text-transform: uppercase;
-    }
-
+    .result-section { margin-top: 28px; display: none; }
+    .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+    .result-title { font-family: 'Orbitron', monospace; font-size: 12px; letter-spacing: 2px; color: var(--neon); text-transform: uppercase; }
     .result-canvas-wrap {
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: var(--glow);
+      border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
+      box-shadow: var(--glow); position: relative;
       background: repeating-conic-gradient(#1a1a2e 0% 25%, #0d0d1a 0% 50%) 0 0 / 20px 20px;
-      position: relative;
     }
-
-    #outputCanvas {
-      width: 100%;
-      display: block;
-      max-height: 500px;
-      object-fit: contain;
-    }
+    #outputCanvas { width: 100%; display: block; max-height: 500px; object-fit: contain; }
 
     .btn-download {
-      padding: 12px 24px;
-      font-family: 'Orbitron', monospace;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      border: 1px solid rgba(0,255,136,0.4);
-      border-radius: 8px;
-      cursor: pointer;
+      padding: 11px 22px; font-family: 'Orbitron', monospace; font-size: 11px;
+      font-weight: 700; letter-spacing: 1.5px;
+      border: 1px solid rgba(0,255,136,0.4); border-radius: 8px; cursor: pointer;
       background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,245,255,0.05));
-      color: #00ff88;
-      box-shadow: 0 0 15px rgba(0,255,136,0.2);
-      transition: all 0.3s;
-      text-decoration: none;
-      display: inline-block;
+      color: #00ff88; box-shadow: 0 0 15px rgba(0,255,136,0.2); transition: all 0.3s;
+      text-decoration: none; display: inline-block;
     }
+    .btn-download:hover { box-shadow: 0 0 25px rgba(0,255,136,0.5); transform: translateY(-1px); }
 
-    .btn-download:hover {
-      box-shadow: 0 0 25px rgba(0,255,136,0.5);
-      transform: translateY(-1px);
+    .processing-overlay {
+      position: absolute; inset: 0; background: rgba(5,5,8,0.85);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; backdrop-filter: blur(4px); z-index: 10;
     }
+    .processing-overlay.active { display: flex; }
+    .spinner {
+      width: 50px; height: 50px; border: 3px solid rgba(0,245,255,0.1);
+      border-top-color: var(--neon); border-radius: 50%;
+      animation: spin 0.8s linear infinite; box-shadow: 0 0 20px rgba(0,245,255,0.3);
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .processing-text {
+      font-family: 'Orbitron', monospace; font-size: 11px; color: var(--neon);
+      letter-spacing: 3px; animation: pulse-text 1.5s infinite;
+    }
+    @keyframes pulse-text { 0%,100%{opacity:.5} 50%{opacity:1} }
 
-    /* HIDDEN ELEMENTS */
     #hiddenImg { display: none; }
 
-    /* LOADING OVERLAY */
-    .processing-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(5,5,8,0.85);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 16px;
-      backdrop-filter: blur(4px);
-      z-index: 10;
-    }
+    footer { text-align: center; margin-top: 50px; color: rgba(200,200,255,0.2); font-size: 12px; letter-spacing: 1px; }
 
-    .processing-overlay.active { display: flex; }
-
-    .spinner {
-      width: 50px; height: 50px;
-      border: 3px solid rgba(0,245,255,0.1);
-      border-top-color: var(--neon);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      box-shadow: 0 0 20px rgba(0,245,255,0.3);
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .processing-text {
-      font-family: 'Orbitron', monospace;
-      font-size: 12px;
-      color: var(--neon);
-      letter-spacing: 3px;
-      animation: pulse-text 1.5s infinite;
-    }
-
-    @keyframes pulse-text {
-      0%, 100% { opacity: 0.5; }
-      50% { opacity: 1; }
-    }
-
-    /* FOOTER */
-    footer {
-      text-align: center;
-      margin-top: 50px;
-      color: rgba(200,200,255,0.2);
-      font-size: 12px;
-      letter-spacing: 1px;
+    @media(max-width:600px) {
+      .gradient-swatch { width: 65px; height: 42px; }
+      .preset-thumb { width: 80px; height: 52px; }
+      .color-swatch { width: 38px; height: 38px; }
+      .bg-tab { font-size: 9px; padding: 6px 10px; }
     }
   </style>
 </head>
 <body>
-
 <img id="hiddenImg" crossorigin="anonymous" />
 
 <div class="container">
-
   <header>
     <div class="logo-badge">⚡ Powered by Google MediaPipe</div>
     <h1>Google AI BG Remover</h1>
-    <p class="subtitle">100% Offline · No Upload · Browser Based</p>
+    <p class="subtitle">100% Offline · No Upload · Browser Based · Custom Backgrounds</p>
     <div class="scan-line"></div>
   </header>
 
-  <!-- UPLOAD -->
+  <!-- STEP 1 -->
+  <div class="step-label"><span class="step-num">1</span> Upload Your Photo</div>
   <div class="upload-zone" id="uploadZone">
     <span class="upload-icon">🖼️</span>
     <h3>Drop Image Here</h3>
     <p>Click to select or drag & drop · JPG, PNG, WEBP</p>
     <input type="file" id="fileInput" accept="image/*" />
   </div>
-
-  <!-- PREVIEW -->
   <div class="preview-box" id="previewBox">
     <span class="preview-label">ORIGINAL</span>
     <img id="previewImg" alt="preview" />
   </div>
 
-  <!-- REMOVE BUTTON -->
-  <button class="btn-remove" id="removeBtn">
-    🪄 &nbsp; Remove Background
-  </button>
+  <!-- STEP 2 -->
+  <div class="section" id="bgSection" style="display:none;">
+    <div class="step-label"><span class="step-num">2</span> Choose New Background</div>
 
-  <!-- STATUS -->
+    <div class="bg-tabs">
+      <div class="bg-tab active" data-tab="none">❌ Transparent</div>
+      <div class="bg-tab" data-tab="solid">🎨 Solid Color</div>
+      <div class="bg-tab" data-tab="gradient">🌈 Gradient</div>
+      <div class="bg-tab" data-tab="preset">🖼️ Preset Scenes</div>
+      <div class="bg-tab" data-tab="custom">📁 Custom Image</div>
+    </div>
+
+    <!-- TRANSPARENT -->
+    <div class="bg-panel active" id="panel-none">
+      <p style="color:rgba(200,200,255,0.4);font-size:13px;padding:10px 0;">Background will be fully transparent (PNG)</p>
+    </div>
+
+    <!-- SOLID -->
+    <div class="bg-panel" id="panel-solid">
+      <div class="color-grid">
+        <div class="color-swatch" style="background:#ffffff" data-color="#ffffff"></div>
+        <div class="color-swatch" style="background:#000000;border-color:rgba(255,255,255,0.15)" data-color="#000000"></div>
+        <div class="color-swatch" style="background:#1a1a2e" data-color="#1a1a2e"></div>
+        <div class="color-swatch" style="background:#0f3460" data-color="#0f3460"></div>
+        <div class="color-swatch" style="background:#00f5ff" data-color="#00f5ff"></div>
+        <div class="color-swatch" style="background:#7b2fff" data-color="#7b2fff"></div>
+        <div class="color-swatch" style="background:#ff2d78" data-color="#ff2d78"></div>
+        <div class="color-swatch" style="background:#00ff88" data-color="#00ff88"></div>
+        <div class="color-swatch" style="background:#f5f0e8" data-color="#f5f0e8"></div>
+        <div class="color-swatch" style="background:#2d4a22" data-color="#2d4a22"></div>
+        <div class="color-swatch" style="background:#8b0000" data-color="#8b0000"></div>
+        <div class="color-swatch" style="background:#ffd700" data-color="#ffd700"></div>
+      </div>
+      <div class="color-custom-wrap">
+        <label>Custom:</label>
+        <input type="color" id="customColor" value="#00f5ff" />
+      </div>
+    </div>
+
+    <!-- GRADIENT -->
+    <div class="bg-panel" id="panel-gradient">
+      <div class="gradient-grid">
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#0f0c29,#302b63,#24243e)" data-gradient="linear-gradient(135deg,#0f0c29,#302b63,#24243e)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#000000,#434343)" data-gradient="linear-gradient(135deg,#000000,#434343)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#00f5ff,#7b2fff)" data-gradient="linear-gradient(135deg,#00f5ff,#7b2fff)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)" data-gradient="linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#f093fb,#f5576c)" data-gradient="linear-gradient(135deg,#f093fb,#f5576c)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#4facfe,#00f2fe)" data-gradient="linear-gradient(135deg,#4facfe,#00f2fe)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#43e97b,#38f9d7)" data-gradient="linear-gradient(135deg,#43e97b,#38f9d7)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#fa709a,#fee140)" data-gradient="linear-gradient(135deg,#fa709a,#fee140)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#a18cd1,#fbc2eb)" data-gradient="linear-gradient(135deg,#a18cd1,#fbc2eb)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#ffecd2,#fcb69f)" data-gradient="linear-gradient(135deg,#ffecd2,#fcb69f)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#2c3e50,#3498db)" data-gradient="linear-gradient(135deg,#2c3e50,#3498db)"></div>
+        <div class="gradient-swatch" style="background:linear-gradient(135deg,#11998e,#38ef7d)" data-gradient="linear-gradient(135deg,#11998e,#38ef7d)"></div>
+      </div>
+    </div>
+
+    <!-- PRESET -->
+    <div class="bg-panel" id="panel-preset">
+      <div class="preset-grid">
+        <div class="preset-thumb" data-preset="office" style="background:linear-gradient(180deg,#87ceeb,#e8d5b7,#c4a882)"><span class="emoji">🏢</span><span>Office</span></div>
+        <div class="preset-thumb" data-preset="nature" style="background:linear-gradient(180deg,#87ceeb,#90EE90,#228B22)"><span class="emoji">🌿</span><span>Nature</span></div>
+        <div class="preset-thumb" data-preset="beach" style="background:linear-gradient(180deg,#87CEEB,#87CEEB,#F4A460,#DEB887)"><span class="emoji">🏖️</span><span>Beach</span></div>
+        <div class="preset-thumb" data-preset="night" style="background:linear-gradient(180deg,#0a0a2e,#1a1a4e,#2d2d5e)"><span class="emoji">🌃</span><span>Night City</span></div>
+        <div class="preset-thumb" data-preset="studio" style="background:radial-gradient(ellipse at 50% 30%,#fff,#d0d0d0)"><span class="emoji">📸</span><span>Studio</span></div>
+        <div class="preset-thumb" data-preset="bokeh" style="background:radial-gradient(ellipse at 30% 50%,rgba(0,245,255,0.5),transparent 60%),radial-gradient(ellipse at 70% 50%,rgba(123,47,255,0.5),transparent 60%),#0a0a14"><span class="emoji">✨</span><span>Bokeh</span></div>
+        <div class="preset-thumb" data-preset="mountains" style="background:linear-gradient(180deg,#c9d6ff,#e2e2e2,#a8c5a0,#5a7a5a)"><span class="emoji">⛰️</span><span>Mountains</span></div>
+        <div class="preset-thumb" data-preset="space" style="background:#020010"><span class="emoji">🚀</span><span>Space</span></div>
+      </div>
+    </div>
+
+    <!-- CUSTOM IMAGE -->
+    <div class="bg-panel" id="panel-custom">
+      <div class="custom-bg-zone" id="bgUploadZone">
+        <span style="font-size:36px;display:block;margin-bottom:8px;">📁</span>
+        <p style="color:rgba(200,200,255,0.5);font-size:13px;">Click to upload your own background image</p>
+        <input type="file" id="bgFileInput" accept="image/*" />
+      </div>
+      <div class="custom-bg-preview" id="customBgPreview">
+        <img id="customBgImg" alt="custom bg" />
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <button class="btn-remove" id="removeBtn">🪄 &nbsp; Remove Background & Apply</button>
+
   <div class="status-bar" id="statusBar">
     <div class="status-dot"></div>
-    <span id="statusText">Initializing AI Model...</span>
+    <span id="statusText">Ready...</span>
   </div>
 
   <!-- RESULT -->
   <div class="result-section" id="resultSection">
     <div class="result-header">
-      <span class="result-title">✨ Result — Transparent Background</span>
-      <a id="downloadBtn" class="btn-download" download="removed-bg.png">⬇ Download HD PNG</a>
+      <span class="result-title">✨ Result</span>
+      <a id="downloadBtn" class="btn-download" download="bg-removed.png">⬇ Download HD PNG</a>
     </div>
     <div class="result-canvas-wrap">
       <div class="processing-overlay" id="processingOverlay">
         <div class="spinner"></div>
-        <div class="processing-text">PROCESSING...</div>
-      </div>
-      <canvas id="outputCanvas"></canvas>
-    </div>
-  </div>
-
-  <footer>
-    <p>Google MediaPipe Selfie Segmentation · Runs 100% in Browser · Zero Data Sent</p>
-  </footer>
-
-</div>
-
-<script>
-  // ── Elements ──
-  const uploadZone   = document.getElementById('uploadZone');
-  const fileInput    = document.getElementById('fileInput');
-  const previewBox   = document.getElementById('previewBox');
-  const previewImg   = document.getElementById('previewImg');
-  const removeBtn    = document.getElementById('removeBtn');
-  const statusBar    = document.getElementById('statusBar');
-  const statusText   = document.getElementById('statusText');
-  const resultSection= document.getElementById('resultSection');
-  const outputCanvas = document.getElementById('outputCanvas');
-  const downloadBtn  = document.getElementById('downloadBtn');
-  const hiddenImg    = document.getElementById('hiddenImg');
-  const processingOverlay = document.getElementById('processingOverlay');
-
-  let segmentation = null;
-  let modelReady = false;
-  let currentFile = null;
-
-  // ── Init MediaPipe ──
-  function initModel() {
-    try {
-      segmentation = new SelfieSegmentation({
-        locateFile: (file) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
-      });
-
-      segmentation.setOptions({ modelSelection: 1 });
-
-      segmentation.onResults(onSegmentationResults);
-
-      // Warm up
-      segmentation.initialize().then(() => {
-        modelReady = true;
-        console.log('MediaPipe model ready ✅');
-      }).catch(err => {
-        console.warn('Init warning (non-fatal):', err);
-        modelReady = true; // Try anyway
-      });
-
-    } catch (e) {
-      console.error('Model init failed:', e);
-      showStatus('Model load failed. Please refresh.', 'error');
-    }
-  }
-
-  initModel();
-
-  // ── Upload Handlers ──
-  uploadZone.addEventListener('click', () => fileInput.click());
-
-  uploadZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadZone.classList.add('dragover');
-  });
-
-  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
-
-  uploadZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uploadZone.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) loadImage(file);
-  });
-
-  fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) loadImage(file);
-  });
-
-  function loadImage(file) {
-    currentFile = file;
-    const url = URL.createObjectURL(file);
-
-    previewImg.src = url;
-    previewImg.onload = () => {
-      previewBox.style.display = 'block';
-      removeBtn.style.display = 'block';
-      resultSection.style.display = 'none';
-    };
-  }
-
-  // ── Remove Background ──
-  removeBtn.addEventListener('click', async () => {
-    if (!currentFile) return;
-
-    removeBtn.disabled = true;
-    resultSection.style.display = 'block';
-    processingOverlay.classList.add('active');
-    showStatus('AI is analyzing your image...', 'processing');
-
-    const url = URL.createObjectURL(currentFile);
-    hiddenImg.src = url;
-
-    hiddenImg.onload = async () => {
-      try {
-        if (!modelReady || !segmentation) {
-          throw new Error('Model not ready');
-        }
-        await segmentation.send({ image: hiddenImg });
-      } catch (err) {
-        console.error('Segmentation error:', err);
-        processingOverlay.classList.remove('active');
-        removeBtn.disabled = false;
-        showStatus('❌ Error: ' + err.message + '. Try refreshing.', 'error');
-      }
-    };
-
-    hiddenImg.onerror = () => {
-      processingOverlay.classList.remove('active');
-      removeBtn.disabled = false;
-      showStatus('❌ Could not load image.', 'error');
-    };
-  });
-
-  // ── MediaPipe Results ──
-  function onSegmentationResults(results) {
-    try {
-      const img = results.image;
-      const mask = results.segmentationMask;
-
-      const w = img.width || hiddenImg.naturalWidth;
-      const h = img.height || hiddenImg.naturalHeight;
-
-      outputCanvas.width  = w;
-      outputCanvas.height = h;
-
-      const ctx = outputCanvas.getContext('2d');
-      ctx.clearRect(0, 0, w, h);
-
-      // Step 1: Draw the original image
-      ctx.drawImage(img, 0, 0, w, h);
-
-      // Step 2: Apply mask to keep only foreground
-      ctx.globalCompositeOperation = 'destination-in';
-      ctx.drawImage(mask, 0, 0, w, h);
-
-      // Reset composite
-      ctx.globalCompositeOperation = 'source-over';
-
-      // Set download
-      downloadBtn.href = outputCanvas.toDataURL('image/png');
-      downloadBtn.download = 'removed-bg-' + Date.now() + '.png';
-
-      processingOverlay.classList.remove('active');
-      removeBtn.disabled = false;
-      showStatus('✅ Background removed successfully!', 'done');
-
-    } catch (err) {
-      console.error('Result processing error:', err);
-      processingOverlay.classList.remove('active');
-      removeBtn.disabled = false;
-      showStatus('❌ Processing failed: ' + err.message, 'error');
-    }
-  }
-
-  function showStatus(msg, type) {
-    statusBar.className = 'status-bar active';
-    if (type) statusBar.classList.add(type);
-    statusText.textContent = msg;
-  }
-</script>
-
-</body>
-</html>
+        <div class="processin
