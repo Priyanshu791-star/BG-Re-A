@@ -1,378 +1,359 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Google AI BG Remover (Offline)</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
-  <style>
-    :root {
-      --neon: #00f5ff;
-      --neon2: #7b2fff;
-      --bg: #050508;
-      --card: #0a0a14;
-      --border: rgba(0,245,255,0.2);
-      --glow: 0 0 20px rgba(0,245,255,0.4), 0 0 60px rgba(0,245,255,0.1);
-      --glow-strong: 0 0 30px rgba(0,245,255,0.8), 0 0 80px rgba(0,245,255,0.3);
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: var(--bg);
-      color: #e0e0ff;
-      font-family: 'Rajdhani', sans-serif;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background-image:
-        linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
-      background-size: 40px 40px;
-      pointer-events: none; z-index: 0;
-    }
-    body::after {
-      content: '';
-      position: fixed; top: -50%; left: -50%; width: 200%; height: 200%;
-      background: radial-gradient(ellipse at 30% 20%, rgba(123,47,255,0.08) 0%, transparent 50%),
-                  radial-gradient(ellipse at 70% 80%, rgba(0,245,255,0.06) 0%, transparent 50%);
-      pointer-events: none; z-index: 0;
-      animation: pulse-bg 8s ease-in-out infinite alternate;
-    }
-    @keyframes pulse-bg { 0%{opacity:.5} 100%{opacity:1} }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI BG Remover</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+<style>
+:root {
+  --neon:#00f5ff; --neon2:#7b2fff; --bg:#050508;
+  --border:rgba(0,245,255,0.25);
+  --glow:0 0 20px rgba(0,245,255,0.4),0 0 50px rgba(0,245,255,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:#e0e0ff;font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,245,255,0.03)1px,transparent 1px),linear-gradient(90deg,rgba(0,245,255,0.03)1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:24px 16px 80px;}
 
-    .container { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
+/* HEADER */
+header{text-align:center;padding:30px 0 18px;}
+.badge{display:inline-block;background:rgba(0,245,255,0.08);border:1px solid var(--border);border-radius:50px;padding:5px 16px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--neon);margin-bottom:12px;box-shadow:var(--glow);}
+h1{font-family:'Orbitron',monospace;font-size:clamp(18px,5vw,36px);font-weight:900;background:linear-gradient(135deg,#fff,var(--neon),var(--neon2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;}
+.sub{color:rgba(200,200,255,0.45);font-size:13px;letter-spacing:1px;}
+.line{height:2px;margin:16px 0;background:linear-gradient(90deg,transparent,var(--neon),transparent);box-shadow:0 0 8px var(--neon);animation:scan 3s ease-in-out infinite;}
+@keyframes scan{0%,100%{opacity:.3;transform:scaleX(.3)}50%{opacity:1;transform:scaleX(1)}}
 
-    header { text-align: center; padding: 36px 0 24px; }
-    .logo-badge {
-      display: inline-block;
-      background: linear-gradient(135deg, rgba(0,245,255,0.1), rgba(123,47,255,0.1));
-      border: 1px solid var(--border); border-radius: 50px;
-      padding: 6px 18px; font-size: 11px; letter-spacing: 3px;
-      text-transform: uppercase; color: var(--neon); margin-bottom: 14px;
-      box-shadow: var(--glow);
-    }
-    h1 {
-      font-family: 'Orbitron', monospace;
-      font-size: clamp(20px, 5vw, 40px); font-weight: 900; line-height: 1.1;
-      background: linear-gradient(135deg, #fff 0%, var(--neon) 50%, var(--neon2) 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-      margin-bottom: 8px;
-    }
-    .subtitle { color: rgba(200,200,255,0.5); font-size: 14px; letter-spacing: 1px; }
-    .scan-line {
-      width: 100%; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--neon), transparent);
-      margin: 20px 0; animation: scan 3s ease-in-out infinite; box-shadow: 0 0 10px var(--neon);
-    }
-    @keyframes scan { 0%,100%{opacity:.3;transform:scaleX(.3)} 50%{opacity:1;transform:scaleX(1)} }
+/* STEP LABEL */
+.slabel{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:3px;color:var(--neon);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.snum{width:20px;height:20px;border-radius:50%;font-size:9px;background:rgba(0,245,255,0.12);border:1px solid rgba(0,245,255,0.35);display:flex;align-items:center;justify-content:center;color:var(--neon);}
 
-    .step-label {
-      font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 3px;
-      color: var(--neon); text-transform: uppercase; margin-bottom: 10px;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .step-num {
-      width: 22px; height: 22px; border-radius: 50%;
-      background: rgba(0,245,255,0.15); border: 1px solid rgba(0,245,255,0.4);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 10px; color: var(--neon); flex-shrink: 0;
-    }
+/* UPLOAD */
+.up-label{display:block;border:2px dashed rgba(0,245,255,0.3);border-radius:14px;padding:36px 20px;text-align:center;cursor:pointer;background:linear-gradient(135deg,rgba(0,245,255,0.03),rgba(123,47,255,0.03));transition:all .3s;}
+.up-label:hover{border-color:var(--neon);box-shadow:var(--glow);}
+.up-label .ico{font-size:46px;display:block;margin-bottom:10px;filter:drop-shadow(0 0 8px rgba(0,245,255,0.5));}
+.up-label h3{font-family:'Orbitron',monospace;font-size:14px;color:var(--neon);margin-bottom:5px;}
+.up-label p{color:rgba(200,200,255,0.4);font-size:12px;}
 
-    .upload-zone {
-      display: block;
-      border: 2px dashed rgba(0,245,255,0.3); border-radius: 16px;
-      padding: 36px 20px; text-align: center; cursor: pointer;
-      transition: all 0.3s ease;
-      background: linear-gradient(135deg, rgba(0,245,255,0.03), rgba(123,47,255,0.03));
-      position: relative; overflow: hidden;
-    }
-    .upload-zone:hover, .upload-zone.dragover { border-color: var(--neon); box-shadow: var(--glow); }
-    .upload-icon { font-size: 44px; margin-bottom: 12px; display: block; filter: drop-shadow(0 0 10px rgba(0,245,255,0.5)); }
-    .upload-zone h3 { font-family: 'Orbitron', monospace; font-size: 15px; color: var(--neon); margin-bottom: 6px; }
-    .upload-zone p { color: rgba(200,200,255,0.4); font-size: 13px; }
-    #fileInput { display: none; }
+/* PREVIEW */
+#previewWrap{margin-top:14px;display:none;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--glow);position:relative;background:#0a0a14;}
+.ptag{position:absolute;top:8px;left:8px;z-index:2;background:rgba(0,0,0,0.8);border:1px solid var(--border);border-radius:5px;padding:3px 10px;font-size:10px;letter-spacing:2px;color:var(--neon);text-transform:uppercase;}
+#previewImg{display:block;width:100%;max-height:320px;object-fit:contain;}
 
-    .preview-box {
-      margin-top: 16px; display: none; border-radius: 12px; overflow: hidden;
-      border: 1px solid var(--border); box-shadow: var(--glow); position: relative;
-    }
-    .preview-label {
-      position: absolute; top: 10px; left: 10px;
-      background: rgba(0,0,0,0.7); border: 1px solid var(--border); border-radius: 6px;
-      padding: 4px 10px; font-size: 11px; letter-spacing: 2px; color: var(--neon);
-      text-transform: uppercase; backdrop-filter: blur(10px);
-    }
-    #previewImg { width: 100%; max-height: 300px; object-fit: contain; display: block; background: #0a0a14; }
+/* STATUS BAR */
+#status{margin-top:12px;padding:11px 14px;border-radius:9px;border:1px solid var(--border);background:rgba(0,245,255,0.03);font-size:13px;letter-spacing:.5px;display:none;align-items:center;gap:9px;color:rgba(200,200,255,0.7);}
+#status.show{display:flex;}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+#status.ok .dot{background:#00ff88;box-shadow:0 0 6px #00ff88;}
+#status.err .dot{background:#ff4466;box-shadow:0 0 6px #ff4466;}
+#status.busy .dot{background:var(--neon);box-shadow:0 0 6px var(--neon);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
-    .section { margin-top: 28px; }
+/* BG SECTION */
+#bgWrap{margin-top:22px;display:none;}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.tab{padding:6px 13px;border-radius:7px;cursor:pointer;font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1px;border:1px solid rgba(0,245,255,0.2);background:rgba(0,245,255,0.04);color:rgba(200,200,255,0.45);transition:all .2s;}
+.tab.on,.tab:hover{border-color:var(--neon);color:var(--neon);background:rgba(0,245,255,0.1);box-shadow:0 0 8px rgba(0,245,255,0.2);}
+.panel{display:none;}.panel.on{display:block;}
+.panel>p{color:rgba(200,200,255,0.4);font-size:12px;padding:8px 0;}
 
-    .bg-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
-    .bg-tab {
-      padding: 7px 14px; border-radius: 8px; cursor: pointer;
-      font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 1px;
-      border: 1px solid rgba(0,245,255,0.2); background: rgba(0,245,255,0.05);
-      color: rgba(200,200,255,0.5); transition: all 0.2s;
-    }
-    .bg-tab.active, .bg-tab:hover {
-      border-color: var(--neon); color: var(--neon); background: rgba(0,245,255,0.1);
-      box-shadow: 0 0 10px rgba(0,245,255,0.2);
-    }
+/* SOLID COLORS */
+.cgrid{display:flex;flex-wrap:wrap;gap:9px;}
+.csw{width:42px;height:42px;border-radius:9px;cursor:pointer;border:2px solid transparent;transition:all .2s;flex-shrink:0;}
+.csw:hover,.csw.on{border-color:var(--neon);box-shadow:0 0 10px rgba(0,245,255,0.5);transform:scale(1.1);}
+.cex{display:flex;align-items:center;gap:9px;margin-top:11px;}
+.cex label{font-size:12px;color:rgba(200,200,255,0.45);}
+#cPick{width:42px;height:42px;border-radius:9px;border:1px solid var(--border);cursor:pointer;background:none;}
 
-    .bg-panel { display: none; }
-    .bg-panel.active { display: block; }
+/* GRADIENTS */
+.ggrid{display:flex;flex-wrap:wrap;gap:9px;}
+.gsw{width:76px;height:48px;border-radius:9px;cursor:pointer;border:2px solid transparent;transition:all .2s;}
+.gsw:hover,.gsw.on{border-color:var(--neon);box-shadow:0 0 10px rgba(0,245,255,0.5);transform:scale(1.05);}
 
-    .color-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-    .color-swatch {
-      width: 44px; height: 44px; border-radius: 10px; cursor: pointer;
-      border: 2px solid transparent; transition: all 0.2s; flex-shrink: 0;
-    }
-    .color-swatch:hover, .color-swatch.selected {
-      border-color: var(--neon); box-shadow: 0 0 12px rgba(0,245,255,0.5); transform: scale(1.1);
-    }
-    .color-custom-wrap { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
-    .color-custom-wrap label { font-size: 13px; color: rgba(200,200,255,0.5); }
-    #customColor { width: 44px; height: 44px; border-radius: 10px; border: none; cursor: pointer; background: none; }
+/* PRESETS */
+.pgrid{display:flex;flex-wrap:wrap;gap:9px;}
+.psw{width:96px;height:62px;border-radius:9px;cursor:pointer;border:2px solid transparent;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:rgba(255,255,255,0.85);font-family:'Rajdhani',sans-serif;}
+.psw:hover,.psw.on{border-color:var(--neon);box-shadow:0 0 10px rgba(0,245,255,0.5);transform:scale(1.05);}
+.psw .e{font-size:20px;}
 
-    .gradient-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-    .gradient-swatch {
-      width: 80px; height: 50px; border-radius: 10px; cursor: pointer;
-      border: 2px solid transparent; transition: all 0.2s;
-    }
-    .gradient-swatch:hover, .gradient-swatch.selected {
-      border-color: var(--neon); box-shadow: 0 0 12px rgba(0,245,255,0.5); transform: scale(1.05);
-    }
+/* CUSTOM BG UPLOAD */
+.cbz{border:2px dashed rgba(0,245,255,0.3);border-radius:11px;padding:24px;text-align:center;cursor:pointer;background:rgba(0,245,255,0.02);transition:all .3s;}
+.cbz:hover{border-color:var(--neon);box-shadow:var(--glow);}
+.cbz p{color:rgba(200,200,255,0.45);font-size:12px;margin-top:6px;}
+#cbgPrev{margin-top:10px;display:none;border-radius:9px;overflow:hidden;border:1px solid var(--border);}
+#cbgPrev img{width:100%;max-height:110px;object-fit:cover;display:block;}
 
-    .preset-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-    .preset-thumb {
-      width: 100px; height: 65px; border-radius: 10px; cursor: pointer;
-      border: 2px solid transparent; transition: all 0.2s;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 3px;
-      color: rgba(255,255,255,0.8); font-family: 'Rajdhani', sans-serif; font-size: 11px;
-    }
-    .preset-thumb:hover, .preset-thumb.selected {
-      border-color: var(--neon); box-shadow: 0 0 12px rgba(0,245,255,0.5); transform: scale(1.05);
-    }
-    .preset-thumb .emoji { font-size: 22px; }
+/* MAIN BUTTON */
+#goBtn{display:none;width:100%;margin-top:20px;padding:17px;font-family:'Orbitron',monospace;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#004d66,#001a33,#2d0066);color:var(--neon);border:1px solid rgba(0,245,255,0.4);box-shadow:var(--glow);transition:all .3s;position:relative;overflow:hidden;}
+#goBtn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(0,245,255,0.15),transparent);transition:left .5s;}
+#goBtn:hover::before{left:100%;}
+#goBtn:hover{transform:translateY(-2px);color:#fff;}
+#goBtn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
 
-    .custom-bg-zone {
-      border: 2px dashed rgba(0,245,255,0.3); border-radius: 12px;
-      padding: 28px 20px; text-align: center; cursor: pointer;
-      transition: all 0.3s; background: rgba(0,245,255,0.02);
-    }
-    .custom-bg-zone:hover { border-color: var(--neon); box-shadow: var(--glow); }
-    #bgFileInput { display: none; }
-    .custom-bg-preview { margin-top: 12px; display: none; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); max-height: 120px; }
-    .custom-bg-preview img { width: 100%; max-height: 120px; object-fit: cover; display: block; }
+/* RESULT */
+#resultWrap{margin-top:26px;display:none;}
+.rhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;flex-wrap:wrap;gap:8px;}
+.rtitle{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;color:var(--neon);text-transform:uppercase;}
+#dlBtn{padding:10px 20px;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:1.5px;border:1px solid rgba(0,255,136,0.4);border-radius:7px;cursor:pointer;background:linear-gradient(135deg,rgba(0,255,136,0.1),rgba(0,245,255,0.05));color:#00ff88;box-shadow:0 0 14px rgba(0,255,136,0.2);transition:all .3s;text-decoration:none;display:inline-block;}
+#dlBtn:hover{box-shadow:0 0 22px rgba(0,255,136,0.5);transform:translateY(-1px);}
+.cbox{border-radius:12px;overflow:hidden;border:1px solid var(--border);box-shadow:var(--glow);position:relative;background:repeating-conic-gradient(#1a1a2e 0% 25%,#0d0d1a 0% 50%) 0 0/20px 20px;}
+#outCanvas{display:block;width:100%;max-height:500px;}
+.overlay{position:absolute;inset:0;background:rgba(5,5,8,0.87);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(4px);z-index:10;}
+.overlay.show{display:flex;}
+.spin{width:48px;height:48px;border:3px solid rgba(0,245,255,0.1);border-top-color:var(--neon);border-radius:50%;animation:spin .8s linear infinite;box-shadow:0 0 18px rgba(0,245,255,0.3);}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sptxt{font-family:'Orbitron',monospace;font-size:11px;color:var(--neon);letter-spacing:3px;animation:blink 1.5s infinite;}
 
-    .btn-remove {
-      width: 100%; margin-top: 24px; padding: 18px;
-      font-family: 'Orbitron', monospace; font-size: 15px; font-weight: 700;
-      letter-spacing: 2px; text-transform: uppercase; border-radius: 12px;
-      cursor: pointer;
-      background: linear-gradient(135deg, #004d66, #001a33, #2d0066);
-      color: var(--neon); border: 1px solid rgba(0,245,255,0.4);
-      box-shadow: var(--glow), inset 0 1px 0 rgba(255,255,255,0.05);
-      transition: all 0.3s; position: relative; overflow: hidden; display: none;
-    }
-    .btn-remove::before {
-      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(0,245,255,0.15), transparent);
-      transition: left 0.5s;
-    }
-    .btn-remove:hover::before { left: 100%; }
-    .btn-remove:hover { box-shadow: var(--glow-strong); transform: translateY(-2px); color: #fff; }
-    .btn-remove:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    .status-bar {
-      margin-top: 14px; padding: 12px 16px; border-radius: 10px;
-      border: 1px solid var(--border); background: rgba(0,245,255,0.03);
-      font-size: 13px; letter-spacing: 1px; color: rgba(200,200,255,0.6);
-      display: none; align-items: center; gap: 10px;
-    }
-    .status-bar.active { display: flex; }
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--neon);
-      animation: blink 1s infinite; flex-shrink: 0; box-shadow: 0 0 6px var(--neon);
-    }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
-    .status-bar.done .status-dot { background: #00ff88; box-shadow: 0 0 6px #00ff88; animation: none; }
-    .status-bar.error .status-dot { background: #ff4466; box-shadow: 0 0 6px #ff4466; animation: none; }
-
-    .result-section { margin-top: 28px; display: none; }
-    .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
-    .result-title { font-family: 'Orbitron', monospace; font-size: 12px; letter-spacing: 2px; color: var(--neon); text-transform: uppercase; }
-    .result-canvas-wrap {
-      border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
-      box-shadow: var(--glow); position: relative;
-      background: repeating-conic-gradient(#1a1a2e 0% 25%, #0d0d1a 0% 50%) 0 0 / 20px 20px;
-    }
-    #outputCanvas { width: 100%; display: block; max-height: 500px; object-fit: contain; }
-
-    .btn-download {
-      padding: 11px 22px; font-family: 'Orbitron', monospace; font-size: 11px;
-      font-weight: 700; letter-spacing: 1.5px;
-      border: 1px solid rgba(0,255,136,0.4); border-radius: 8px; cursor: pointer;
-      background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,245,255,0.05));
-      color: #00ff88; box-shadow: 0 0 15px rgba(0,255,136,0.2); transition: all 0.3s;
-      text-decoration: none; display: inline-block;
-    }
-    .btn-download:hover { box-shadow: 0 0 25px rgba(0,255,136,0.5); transform: translateY(-1px); }
-
-    .processing-overlay {
-      position: absolute; inset: 0; background: rgba(5,5,8,0.85);
-      display: none; align-items: center; justify-content: center;
-      flex-direction: column; gap: 16px; backdrop-filter: blur(4px); z-index: 10;
-    }
-    .processing-overlay.active { display: flex; }
-    .spinner {
-      width: 50px; height: 50px; border: 3px solid rgba(0,245,255,0.1);
-      border-top-color: var(--neon); border-radius: 50%;
-      animation: spin 0.8s linear infinite; box-shadow: 0 0 20px rgba(0,245,255,0.3);
-    }
-    @keyframes spin { to{transform:rotate(360deg)} }
-    .processing-text {
-      font-family: 'Orbitron', monospace; font-size: 11px; color: var(--neon);
-      letter-spacing: 3px; animation: pulse-text 1.5s infinite;
-    }
-    @keyframes pulse-text { 0%,100%{opacity:.5} 50%{opacity:1} }
-
-    #hiddenImg { display: none; }
-
-    footer { text-align: center; margin-top: 50px; color: rgba(200,200,255,0.2); font-size: 12px; letter-spacing: 1px; }
-
-    @media(max-width:600px) {
-      .gradient-swatch { width: 65px; height: 42px; }
-      .preset-thumb { width: 80px; height: 52px; }
-      .color-swatch { width: 38px; height: 38px; }
-      .bg-tab { font-size: 9px; padding: 6px 10px; }
-    }
-  </style>
+footer{text-align:center;margin-top:50px;color:rgba(200,200,255,0.18);font-size:11px;letter-spacing:1px;}
+@media(max-width:500px){.gsw{width:62px;height:40px;}.psw{width:78px;height:52px;}.tab{font-size:8px;padding:5px 9px;}}
+</style>
 </head>
 <body>
-<img id="hiddenImg" crossorigin="anonymous" />
+<img id="hiddenImg" style="display:none;" crossorigin="anonymous"/>
 
-<div class="container">
+<div class="wrap">
   <header>
-    <div class="logo-badge">⚡ Powered by Google MediaPipe</div>
-    <h1>Google AI BG Remover</h1>
-    <p class="subtitle">100% Offline · No Upload · Browser Based · Custom Backgrounds</p>
-    <div class="scan-line"></div>
+    <div class="badge">⚡ Google MediaPipe Powered</div>
+    <h1>AI Background Remover</h1>
+    <p class="sub">100% Offline · No Upload · Browser Based</p>
+    <div class="line"></div>
   </header>
 
-  <!-- STEP 1 -->
-  <div class="step-label"><span class="step-num">1</span> Upload Your Photo</div>
-  <label class="upload-zone" id="uploadZone" for="fileInput">
-    <span class="upload-icon">🖼️</span>
-    <h3>Drop Image Here</h3>
-    <p>Click to select or drag & drop · JPG, PNG, WEBP</p>
-    <input type="file" id="fileInput" accept="image/*" style="display:none;" />
+  <!-- STEP 1: Upload -->
+  <div class="slabel"><span class="snum">1</span> Apni Photo Upload Karo</div>
+  <label class="up-label" for="fileIn">
+    <span class="ico">🖼️</span>
+    <h3>Photo Yahan Click Karke Upload Karo</h3>
+    <p>JPG · PNG · WEBP supported</p>
   </label>
-  <div class="preview-box" id="previewBox">
-    <span class="preview-label">ORIGINAL</span>
-    <img id="previewImg" alt="preview" />
+  <input type="file" id="fileIn" accept="image/*" style="display:none;"/>
+
+  <!-- PREVIEW -->
+  <div id="previewWrap">
+    <div class="ptag">ORIGINAL</div>
+    <img id="previewImg" alt="preview"/>
   </div>
 
-  <!-- STEP 2 -->
-  <div class="section" id="bgSection" style="display:none;">
-    <div class="step-label"><span class="step-num">2</span> Choose New Background</div>
+  <!-- STATUS -->
+  <div id="status"><div class="dot"></div><span id="stxt"></span></div>
 
-    <div class="bg-tabs">
-      <div class="bg-tab active" data-tab="none">❌ Transparent</div>
-      <div class="bg-tab" data-tab="solid">🎨 Solid Color</div>
-      <div class="bg-tab" data-tab="gradient">🌈 Gradient</div>
-      <div class="bg-tab" data-tab="preset">🖼️ Preset Scenes</div>
-      <div class="bg-tab" data-tab="custom">📁 Custom Image</div>
+  <!-- STEP 2: BG Chooser -->
+  <div id="bgWrap">
+    <div class="slabel" style="margin-top:6px;"><span class="snum">2</span> Background Chuniye (Optional)</div>
+    <div class="tabs">
+      <div class="tab on"  data-p="none">❌ Transparent</div>
+      <div class="tab"     data-p="solid">🎨 Solid Color</div>
+      <div class="tab"     data-p="grad">🌈 Gradient</div>
+      <div class="tab"     data-p="pre">🖼️ Scenes</div>
+      <div class="tab"     data-p="cust">📁 Custom Image</div>
     </div>
 
     <!-- TRANSPARENT -->
-    <div class="bg-panel active" id="panel-none">
-      <p style="color:rgba(200,200,255,0.4);font-size:13px;padding:10px 0;">Background will be fully transparent (PNG)</p>
+    <div class="panel on" id="panel-none">
+      <p>Background bilkul transparent rahega — perfect PNG output</p>
     </div>
 
     <!-- SOLID -->
-    <div class="bg-panel" id="panel-solid">
-      <div class="color-grid">
-        <div class="color-swatch" style="background:#ffffff" data-color="#ffffff"></div>
-        <div class="color-swatch" style="background:#000000;border-color:rgba(255,255,255,0.15)" data-color="#000000"></div>
-        <div class="color-swatch" style="background:#1a1a2e" data-color="#1a1a2e"></div>
-        <div class="color-swatch" style="background:#0f3460" data-color="#0f3460"></div>
-        <div class="color-swatch" style="background:#00f5ff" data-color="#00f5ff"></div>
-        <div class="color-swatch" style="background:#7b2fff" data-color="#7b2fff"></div>
-        <div class="color-swatch" style="background:#ff2d78" data-color="#ff2d78"></div>
-        <div class="color-swatch" style="background:#00ff88" data-color="#00ff88"></div>
-        <div class="color-swatch" style="background:#f5f0e8" data-color="#f5f0e8"></div>
-        <div class="color-swatch" style="background:#2d4a22" data-color="#2d4a22"></div>
-        <div class="color-swatch" style="background:#8b0000" data-color="#8b0000"></div>
-        <div class="color-swatch" style="background:#ffd700" data-color="#ffd700"></div>
+    <div class="panel" id="panel-solid">
+      <div class="cgrid">
+        <div class="csw" style="background:#ffffff" data-c="#ffffff"></div>
+        <div class="csw" style="background:#000000;border-color:rgba(255,255,255,0.1)" data-c="#000000"></div>
+        <div class="csw" style="background:#1a1a2e" data-c="#1a1a2e"></div>
+        <div class="csw" style="background:#0f3460" data-c="#0f3460"></div>
+        <div class="csw" style="background:#00f5ff" data-c="#00f5ff"></div>
+        <div class="csw" style="background:#7b2fff" data-c="#7b2fff"></div>
+        <div class="csw" style="background:#ff2d78" data-c="#ff2d78"></div>
+        <div class="csw" style="background:#00ff88" data-c="#00ff88"></div>
+        <div class="csw" style="background:#ffd700" data-c="#ffd700"></div>
+        <div class="csw" style="background:#f5f0e8" data-c="#f5f0e8"></div>
+        <div class="csw" style="background:#2d4a22" data-c="#2d4a22"></div>
+        <div class="csw" style="background:#8b0000" data-c="#8b0000"></div>
       </div>
-      <div class="color-custom-wrap">
-        <label>Custom:</label>
-        <input type="color" id="customColor" value="#00f5ff" />
+      <div class="cex">
+        <label>Custom Color:</label>
+        <input type="color" id="cPick" value="#00f5ff"/>
       </div>
     </div>
 
     <!-- GRADIENT -->
-    <div class="bg-panel" id="panel-gradient">
-      <div class="gradient-grid">
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#0f0c29,#302b63,#24243e)" data-gradient="linear-gradient(135deg,#0f0c29,#302b63,#24243e)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#000000,#434343)" data-gradient="linear-gradient(135deg,#000000,#434343)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#00f5ff,#7b2fff)" data-gradient="linear-gradient(135deg,#00f5ff,#7b2fff)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)" data-gradient="linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#f093fb,#f5576c)" data-gradient="linear-gradient(135deg,#f093fb,#f5576c)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#4facfe,#00f2fe)" data-gradient="linear-gradient(135deg,#4facfe,#00f2fe)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#43e97b,#38f9d7)" data-gradient="linear-gradient(135deg,#43e97b,#38f9d7)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#fa709a,#fee140)" data-gradient="linear-gradient(135deg,#fa709a,#fee140)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#a18cd1,#fbc2eb)" data-gradient="linear-gradient(135deg,#a18cd1,#fbc2eb)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#ffecd2,#fcb69f)" data-gradient="linear-gradient(135deg,#ffecd2,#fcb69f)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#2c3e50,#3498db)" data-gradient="linear-gradient(135deg,#2c3e50,#3498db)"></div>
-        <div class="gradient-swatch" style="background:linear-gradient(135deg,#11998e,#38ef7d)" data-gradient="linear-gradient(135deg,#11998e,#38ef7d)"></div>
+    <div class="panel" id="panel-grad">
+      <div class="ggrid">
+        <div class="gsw" style="background:linear-gradient(135deg,#0f0c29,#302b63,#24243e)" data-g="linear-gradient(135deg,#0f0c29,#302b63,#24243e)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#000,#434343)" data-g="linear-gradient(135deg,#000,#434343)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#00f5ff,#7b2fff)" data-g="linear-gradient(135deg,#00f5ff,#7b2fff)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#1a1a2e,#0f3460)" data-g="linear-gradient(135deg,#1a1a2e,#0f3460)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#f093fb,#f5576c)" data-g="linear-gradient(135deg,#f093fb,#f5576c)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#4facfe,#00f2fe)" data-g="linear-gradient(135deg,#4facfe,#00f2fe)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#43e97b,#38f9d7)" data-g="linear-gradient(135deg,#43e97b,#38f9d7)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#fa709a,#fee140)" data-g="linear-gradient(135deg,#fa709a,#fee140)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#a18cd1,#fbc2eb)" data-g="linear-gradient(135deg,#a18cd1,#fbc2eb)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#ffecd2,#fcb69f)" data-g="linear-gradient(135deg,#ffecd2,#fcb69f)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#2c3e50,#3498db)" data-g="linear-gradient(135deg,#2c3e50,#3498db)"></div>
+        <div class="gsw" style="background:linear-gradient(135deg,#11998e,#38ef7d)" data-g="linear-gradient(135deg,#11998e,#38ef7d)"></div>
       </div>
     </div>
 
-    <!-- PRESET -->
-    <div class="bg-panel" id="panel-preset">
-      <div class="preset-grid">
-        <div class="preset-thumb" data-preset="office" style="background:linear-gradient(180deg,#87ceeb,#e8d5b7,#c4a882)"><span class="emoji">🏢</span><span>Office</span></div>
-        <div class="preset-thumb" data-preset="nature" style="background:linear-gradient(180deg,#87ceeb,#90EE90,#228B22)"><span class="emoji">🌿</span><span>Nature</span></div>
-        <div class="preset-thumb" data-preset="beach" style="background:linear-gradient(180deg,#87CEEB,#87CEEB,#F4A460,#DEB887)"><span class="emoji">🏖️</span><span>Beach</span></div>
-        <div class="preset-thumb" data-preset="night" style="background:linear-gradient(180deg,#0a0a2e,#1a1a4e,#2d2d5e)"><span class="emoji">🌃</span><span>Night City</span></div>
-        <div class="preset-thumb" data-preset="studio" style="background:radial-gradient(ellipse at 50% 30%,#fff,#d0d0d0)"><span class="emoji">📸</span><span>Studio</span></div>
-        <div class="preset-thumb" data-preset="bokeh" style="background:radial-gradient(ellipse at 30% 50%,rgba(0,245,255,0.5),transparent 60%),radial-gradient(ellipse at 70% 50%,rgba(123,47,255,0.5),transparent 60%),#0a0a14"><span class="emoji">✨</span><span>Bokeh</span></div>
-        <div class="preset-thumb" data-preset="mountains" style="background:linear-gradient(180deg,#c9d6ff,#e2e2e2,#a8c5a0,#5a7a5a)"><span class="emoji">⛰️</span><span>Mountains</span></div>
-        <div class="preset-thumb" data-preset="space" style="background:#020010"><span class="emoji">🚀</span><span>Space</span></div>
+    <!-- PRESET SCENES -->
+    <div class="panel" id="panel-pre">
+      <div class="pgrid">
+        <div class="psw" data-ps="office"    style="background:linear-gradient(180deg,#87ceeb,#e8d5b7,#c4a882)"><span class="e">🏢</span>Office</div>
+        <div class="psw" data-ps="nature"    style="background:linear-gradient(180deg,#87ceeb,#90EE90,#228B22)"><span class="e">🌿</span>Nature</div>
+        <div class="psw" data-ps="beach"     style="background:linear-gradient(180deg,#87CEEB,#87CEEB,#F4A460,#DEB887)"><span class="e">🏖️</span>Beach</div>
+        <div class="psw" data-ps="night"     style="background:linear-gradient(180deg,#0a0a2e,#1a1a4e,#2d2d5e)"><span class="e">🌃</span>Night</div>
+        <div class="psw" data-ps="studio"    style="background:radial-gradient(ellipse at 50% 30%,#fff,#ccc)"><span class="e">📸</span>Studio</div>
+        <div class="psw" data-ps="bokeh"     style="background:radial-gradient(ellipse at 30% 50%,rgba(0,245,255,0.5),transparent 60%),radial-gradient(ellipse at 70% 50%,rgba(123,47,255,0.5),transparent 60%),#0a0a14"><span class="e">✨</span>Bokeh</div>
+        <div class="psw" data-ps="mountains" style="background:linear-gradient(180deg,#c9d6ff,#e2e2e2,#a8c5a0,#5a7a5a)"><span class="e">⛰️</span>Mountains</div>
+        <div class="psw" data-ps="space"     style="background:#020010"><span class="e">🚀</span>Space</div>
       </div>
     </div>
 
-    <!-- CUSTOM IMAGE -->
-    <div class="bg-panel" id="panel-custom">
-      <div class="custom-bg-zone" id="bgUploadZone">
-        <span style="font-size:36px;display:block;margin-bottom:8px;">📁</span>
-        <p style="color:rgba(200,200,255,0.5);font-size:13px;">Click to upload your own background image</p>
-        <input type="file" id="bgFileInput" accept="image/*" />
-      </div>
-      <div class="custom-bg-preview" id="customBgPreview">
-        <img id="customBgImg" alt="custom bg" />
-      </div>
+    <!-- CUSTOM BG IMAGE -->
+    <div class="panel" id="panel-cust">
+      <label class="cbz" for="bgIn">
+        <span style="font-size:34px;">📁</span>
+        <p>Click karke apni background image upload karo</p>
+      </label>
+      <input type="file" id="bgIn" accept="image/*" style="display:none;"/>
+      <div id="cbgPrev"><img id="cbgImg" alt="bg"/></div>
     </div>
   </div>
 
-  <!-- STEP 3 -->
-  <button class="btn-remove" id="removeBtn">🪄 &nbsp; Remove Background & Apply</button>
-
-  <div class="status-bar" id="statusBar">
-    <div class="status-dot"></div>
-    <span id="statusText">Ready...</span>
-  </div>
+  <!-- STEP 3: GO BUTTON -->
+  <button id="goBtn">🪄 &nbsp; Background Remove Karo &amp; Apply Karo</button>
 
   <!-- RESULT -->
-  <div class="result-section" id="resultSection">
-    <div class="result-header">
-      <span class="result-title">✨ Result</span>
-      <a id="downloadBtn" class="btn-download" download="bg-removed.png">⬇ Download HD PNG</a>
+  <div id="resultWrap">
+    <div class="rhead">
+      <span class="rtitle">✨ Result</span>
+      <a id="dlBtn" download="bg-removed.png">⬇ Download HD PNG</a>
     </div>
-    <div class="result-canvas-wrap">
-      <div class="processing-overlay" id="processingOverlay">
+    <div class="cbox">
+      <div class="overlay" id="ov"><div class="spin"></div><div class="sptxt">AI PROCESSING...</div></div>
+      <canvas id="outCanvas"></canvas>
+    </div>
+  </div>
+
+  <footer>Google MediaPipe Selfie Segmentation · 100% Browser · Zero Data Sent</footer>
+</div>
+
+<script>
+// Elements
+const fileIn     = document.getElementById('fileIn');
+const previewWrap= document.getElementById('previewWrap');
+const previewImg = document.getElementById('previewImg');
+const statusEl   = document.getElementById('status');
+const stxt       = document.getElementById('stxt');
+const bgWrap     = document.getElementById('bgWrap');
+const goBtn      = document.getElementById('goBtn');
+const resultWrap = document.getElementById('resultWrap');
+const outCanvas  = document.getElementById('outCanvas');
+const dlBtn      = document.getElementById('dlBtn');
+const hiddenImg  = document.getElementById('hiddenImg');
+const ov         = document.getElementById('ov');
+const bgIn       = document.getElementById('bgIn');
+const cbgPrev    = document.getElementById('cbgPrev');
+const cbgImg     = document.getElementById('cbgImg');
+
+let currentFile = null;
+let customBgUrl = null;
+let bgState     = { type: 'none', value: null };
+let seg         = null;
+let modelReady  = false;
+
+// ── STATUS HELPER ──
+function setStatus(msg, type) {
+  stxt.textContent = msg;
+  statusEl.className = 'show ' + (type || '');
+}
+
+// ── INIT MEDIAPIPE ──
+function initSeg() {
+  try {
+    seg = new SelfieSegmentation({
+      locateFile: f => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/' + f
+    });
+    seg.setOptions({ modelSelection: 1 });
+    seg.onResults(onResults);
+    seg.initialize().then(() => { modelReady = true; }).catch(() => { modelReady = true; });
+  } catch(e) {
+    setStatus('Model load error. Refresh karo.', 'err');
+  }
+}
+initSeg();
+
+// ── FILE INPUT CHANGE ──
+fileIn.addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  currentFile = file;
+
+  // Show preview
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    previewImg.src = e.target.result;
+    previewWrap.style.display = 'block';
+    bgWrap.style.display = 'block';
+    goBtn.style.display = 'block';
+    resultWrap.style.display = 'none';
+    setStatus('✅ Photo load ho gayi! Background chuniye aur button dabao.', 'ok');
+  };
+  reader.onerror = function() {
+    setStatus('❌ File read nahi hui. Doosri photo try karo.', 'err');
+  };
+  reader.readAsDataURL(file);
+});
+
+// ── BG FILE INPUT ──
+bgIn.addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    customBgUrl = e.target.result;
+    cbgImg.src = customBgUrl;
+    cbgPrev.style.display = 'block';
+    bgState = { type: 'custom', value: customBgUrl };
+  };
+  reader.readAsDataURL(file);
+});
+
+// ── TABS ──
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+    tab.classList.add('on');
+    const panel = document.getElementById('panel-' + tab.dataset.p);
+    if (panel) panel.classList.add('on');
+    if (tab.dataset.p === 'none') bgState = { type: 'none', value: null };
+  });
+});
+
+// ── SOLID COLOR ──
+document.querySelectorAll('.csw').forEach(sw => {
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.csw').forEach(s => s.classList.remove('on'));
+    sw.classList.add('on');
+    bgState = { type: 'solid', value: sw.dataset.c };
+  });
+});
+document.getElementById('cPick').addEventListener('input', function() {
+  document.querySelectorAll('.csw').forEach(s => s.classList.remove('on'));
+  bgState = { type: 'solid', value: this.value };
+});
+
+// ── GRADIENT ──
+document.querySelectorAll('.gsw').forEach(sw => {
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.gsw').forEach(s => s.classList.remove('on'));
+    sw.classList.add('on');
+    bgState = { type: 'grad', value: sw.dataset.g };
+  });
+});
+
+// ── PRESET SCENES ──
+const presetMap = {
+  office:    'linear-gradient(180deg,#87ceeb 0%,#e8d5b7 60%,#c4a882 100%)',
+  nature:    'linear-gradient(180deg,#87ceeb 0%,#90EE90 50%,#228B22 100%)',
+  beach:     'linear-gradient(180deg,#87CEEB 0%,#87CEEB 35%,#F4A
