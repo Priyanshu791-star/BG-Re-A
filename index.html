@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Background Remover | Offline PWA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+    <style>
+        @import url('https://fonts.googleapis.com');
+        body { background-color: #050505; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .cyber-header { font-family: 'Orbitron', sans-serif; text-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6; }
+        .neon-border { border: 1px solid #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+        .neon-glow:hover { box-shadow: 0 0 25px rgba(59, 130, 246, 0.8); transition: 0.3s; }
+        #resultCanvas { max-width: 100%; height: auto; border-radius: 12px; background-image: conic-gradient(#111 25%, #1a1a1a 0 50%, #111 0 75%, #1a1a1a 0); background-size: 20px 20px; }
+        .loading-shimmer { background: linear-gradient(90deg, #0f172a 25%, #1e293b 50%, #0f172a 75%); background-size: 200% 100%; animation: shimmer 2s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 pb-12">
+
+    <header class="w-full max-w-2xl mt-8 mb-12 text-center">
+        <h1 class="cyber-header text-2xl md:text-3xl font-bold text-blue-500 uppercase tracking-widest">
+            Google AI BG Remover
+        </h1>
+        <p class="text-xs text-blue-300 mt-2 opacity-70">100% OFFLINE BROWSER PROCESSING</p>
+    </header>
+
+    <main class="w-full max-w-xl space-y-6">
+        <!-- Upload Section -->
+        <div class="relative group">
+            <label for="imageInput" class="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-blue-900 rounded-2xl cursor-pointer bg-slate-900/30 hover:bg-slate-900/50 transition-all group-hover:border-blue-500">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg class="w-10 h-10 mb-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="mb-2 text-sm text-blue-200"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                    <p class="text-xs text-slate-500">PNG, JPG or WEBP (HD Supported)</p>
+                </div>
+                <input id="imageInput" type="file" class="hidden" accept="image/*" />
+            </label>
+        </div>
+
+        <!-- Action Button -->
+        <button id="processBtn" disabled class="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 rounded-xl font-bold uppercase tracking-wider neon-glow transition-all flex items-center justify-center gap-2">
+            <span>Remove Background 🪄</span>
+        </button>
+
+        <!-- Status & Results -->
+        <div id="statusText" class="text-center text-sm font-mono text-blue-400/60 h-6"></div>
+
+        <div id="resultContainer" class="hidden space-y-4 animate-in fade-in duration-700">
+            <div class="neon-border rounded-2xl overflow-hidden bg-black">
+                <canvas id="resultCanvas"></canvas>
+            </div>
+            <button id="downloadBtn" class="w-full py-3 border border-blue-500/50 text-blue-400 rounded-xl hover:bg-blue-500/10 font-semibold transition-all">
+                Download HD PNG
+            </button>
+        </div>
+    </main>
+
+    <!-- Hidden Assets -->
+    <img id="hiddenImage" class="hidden" alt="Source" />
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const hiddenImage = document.getElementById('hiddenImage');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resultCanvas = document.getElementById('resultCanvas');
+        const ctx = resultCanvas.getContext('2d');
+        const statusText = document.getElementById('statusText');
+        const resultContainer = document.getElementById('resultContainer');
+
+        // Initialize MediaPipe Selfie Segmentation
+        const selfieSegmentation = new SelfieSegmentation({
+            locateFile: (file) => `https://cdn.jsdelivr.net{file}`
+        });
+
+        selfieSegmentation.setOptions({
+            modelSelection: 1, // General model (HD-ish)
+        });
+
+        selfieSegmentation.onResults((results) => {
+            statusText.innerText = "Finalizing edges...";
+            
+            // Set canvas size to match original image for HD output
+            resultCanvas.width = results.image.width;
+            resultCanvas.height = results.image.height;
+
+            // Clear and Draw
+            ctx.save();
+            ctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+            
+            // Draw the segmentation mask
+            ctx.drawImage(results.segmentationMask, 0, 0, resultCanvas.width, resultCanvas.height);
+
+            // Magic: Only keep parts of the source image where the mask exists
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(results.image, 0, 0, resultCanvas.width, resultCanvas.height);
+            
+            ctx.restore();
+
+            statusText.innerText = "Done!";
+            resultContainer.classList.remove('hidden');
+            processBtn.disabled = false;
+        });
+
+        // Handle Image Upload
+        imageInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                hiddenImage.src = event.target.result;
+                hiddenImage.onload = () => {
+                    processBtn.disabled = false;
+                    statusText.innerText = "Image loaded. Ready for AI magic.";
+                    resultContainer.classList.add('hidden');
+                };
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // Process Action
+        processBtn.onclick = async () => {
+            processBtn.disabled = true;
+            statusText.innerText = "AI is thinking...";
+            try {
+                await selfieSegmentation.send({ image: hiddenImage });
+            } catch (err) {
+                statusText.innerText = "Error: " + err.message;
+                processBtn.disabled = false;
+            }
+        };
+
+        // Download Action
+        downloadBtn.onclick = () => {
+            const link = document.createElement('a');
+            link.download = `no-bg-${Date.now()}.png`;
+            link.href = resultCanvas.toDataURL('image/png');
+            link.click();
+        };
+
+        // Service Worker for PWA (Offline functionality)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `
+                    self.addEventListener('install', (e) => self.skipWaiting());
+                    self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                navigator.serviceWorker.register(URL.createObjectURL(blob));
+            });
+        }
+    </script>
+</body>
+</html>
